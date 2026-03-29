@@ -286,14 +286,32 @@ function onDrop(e){
   const f=e.dataTransfer.files[0]; if(f) loadImg(f);
 }
 function loadFile(inp){if(inp.files[0])loadImg(inp.files[0]);}
-function loadImg(f){
-  const r=new FileReader();
-  r.onload=ev=>{
-    const img=new Image();
-    img.onload=()=>{S.imgEl=img;S.crop=null;goStep(1);};
-    img.src=ev.target.result;
+// function loadImg(f){
+//   const r=new FileReader();
+//   r.onload=ev=>{
+//     const img=new Image();
+//     img.onload=()=>{S.imgEl=img;S.crop=null;goStep(1);};
+//     img.src=ev.target.result;
+//   };
+//   r.readAsDataURL(f);
+// }
+
+  function loadImg(f){
+  const url = URL.createObjectURL(f);   // ✅ better than base64
+  const img = new Image();
+  img.crossOrigin = "anonymous";        // ✅ prevents canvas blocking
+
+  img.onload = () => {
+    S.imgEl = img;
+    S.crop = null;
+    goStep(1);
   };
-  r.readAsDataURL(f);
+
+  img.onerror = () => {
+    alert("Image failed to load. Try another image.");
+  };
+
+  img.src = url;
 }
 
 // ═══════ CROP ═══════
@@ -424,7 +442,15 @@ async function generate(){
   pf().style.width='20%'; ps('Computing nail positions…'); await sl(40);
 
   const nls=getNails(S.shape,bW(),bH(),bD());
-  const imgD=sctx.getImageData(0,0,SZ,SZ).data;
+  // const imgD=sctx.getImageData(0,0,SZ,SZ).data;
+  let imgD;
+try {
+  imgD = sctx.getImageData(0,0,SZ,SZ).data;
+} catch (e) {
+  alert("Image processing blocked. Please run via Live Server or GitHub Pages.");
+  console.error(e);
+  return;
+}
   S.nails=nls.map(n=>{
     const px=Math.min(SZ-1,Math.round(n.x*(SZ-1)));
     const py=Math.min(SZ-1,Math.round(n.y*(SZ-1)));
@@ -477,7 +503,14 @@ function buildSeq(nls,pal,maxT){
 
 // ═══════ VIZ ═══════
 function drawVizCanvas(){
-  const SZ=400, cv=document.getElementById('vc');
+  console.log("Rendering visualize...", S.seq.length);
+ const SZ=400, cv=document.getElementById('vc');
+cv.width=cv.height=SZ;
+const ctx=cv.getContext('2d');
+
+ctx.clearRect(0,0,SZ,SZ);   // ✅ add this
+ctx.fillStyle='#111';
+ctx.fillRect(0,0,SZ,SZ);
   cv.width=cv.height=SZ;
   const ctx=cv.getContext('2d');
   ctx.fillStyle='#111'; ctx.fillRect(0,0,SZ,SZ);
