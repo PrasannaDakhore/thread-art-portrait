@@ -502,30 +502,79 @@ function buildSeq(nls,pal,maxT){
 }
 
 // ═══════ VIZ ═══════
-function drawVizCanvas(){
-  console.log("Rendering visualize...", S.seq.length);
- const SZ=400, cv=document.getElementById('vc');
-cv.width=cv.height=SZ;
-const ctx=cv.getContext('2d');
+// function drawVizCanvas(){
+//   console.log("Rendering visualize...", S.seq.length);
+//  const SZ=400, cv=document.getElementById('vc');
+// cv.width=cv.height=SZ;
+// const ctx=cv.getContext('2d');
 
-ctx.clearRect(0,0,SZ,SZ);   // ✅ add this
-ctx.fillStyle='#111';
-ctx.fillRect(0,0,SZ,SZ);
-  cv.width=cv.height=SZ;
-  const ctx=cv.getContext('2d');
-  ctx.fillStyle='#111'; ctx.fillRect(0,0,SZ,SZ);
-  if(S.shape==='circular'){ctx.save();ctx.beginPath();ctx.arc(SZ/2,SZ/2,SZ/2-2,0,Math.PI*2);ctx.clip();}
-  for(const s of S.seq){
-    const fn=S.nails.find(n=>n.id===s.fromNail);
-    const tn=S.nails.find(n=>n.id===s.toNail);
-    if(!fn||!tn)continue;
-    ctx.beginPath();ctx.moveTo(fn.x*SZ,fn.y*SZ);ctx.lineTo(tn.x*SZ,tn.y*SZ);
-    ctx.strokeStyle=s.color.hex+'66';ctx.lineWidth=0.7;ctx.stroke();
+// ctx.clearRect(0,0,SZ,SZ);   // ✅ add this
+// ctx.fillStyle='#111';
+// ctx.fillRect(0,0,SZ,SZ);
+//   cv.width=cv.height=SZ;
+//   const ctx=cv.getContext('2d');
+//   ctx.fillStyle='#111'; ctx.fillRect(0,0,SZ,SZ);
+//   if(S.shape==='circular'){ctx.save();ctx.beginPath();ctx.arc(SZ/2,SZ/2,SZ/2-2,0,Math.PI*2);ctx.clip();}
+//   for(const s of S.seq){
+//     const fn=S.nails.find(n=>n.id===s.fromNail);
+//     const tn=S.nails.find(n=>n.id===s.toNail);
+//     if(!fn||!tn)continue;
+//     ctx.beginPath();ctx.moveTo(fn.x*SZ,fn.y*SZ);ctx.lineTo(tn.x*SZ,tn.y*SZ);
+//     ctx.strokeStyle=s.color.hex+'66';ctx.lineWidth=0.7;ctx.stroke();
+//   }
+//   if(S.shape==='circular')ctx.restore();
+//   for(const n of S.nails){
+//     ctx.beginPath();ctx.arc(n.x*SZ,n.y*SZ,1.4,0,Math.PI*2);
+//     ctx.fillStyle='#ccc';ctx.fill();
+//   }
+// }
+
+  function drawVizCanvas(){
+  console.log("Rendering visualize...", S.seq.length);
+
+  const SZ = 400;
+  const cv = document.getElementById('vc');
+  cv.width = cv.height = SZ;
+
+  const ctx = cv.getContext('2d');
+
+  // clear & background
+  ctx.clearRect(0, 0, SZ, SZ);
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, SZ, SZ);
+
+  // clip if circular
+  if (S.shape === 'circular') {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(SZ/2, SZ/2, SZ/2 - 2, 0, Math.PI * 2);
+    ctx.clip();
   }
-  if(S.shape==='circular')ctx.restore();
-  for(const n of S.nails){
-    ctx.beginPath();ctx.arc(n.x*SZ,n.y*SZ,1.4,0,Math.PI*2);
-    ctx.fillStyle='#ccc';ctx.fill();
+
+  // draw threads
+  for (const s of S.seq) {
+    const fn = S.nails.find(n => n.id === s.fromNail);
+    const tn = S.nails.find(n => n.id === s.toNail);
+    if (!fn || !tn) continue;
+
+    ctx.beginPath();
+    ctx.moveTo(fn.x * SZ, fn.y * SZ);
+    ctx.lineTo(tn.x * SZ, tn.y * SZ);
+
+    ctx.strokeStyle = s.color.hex + '66';
+    ctx.lineWidth = 0.7;
+    ctx.stroke();
+  }
+
+  // restore clip
+  if (S.shape === 'circular') ctx.restore();
+
+  // draw nails
+  for (const n of S.nails) {
+    ctx.beginPath();
+    ctx.arc(n.x * SZ, n.y * SZ, 1.4, 0, Math.PI * 2);
+    ctx.fillStyle = '#ccc';
+    ctx.fill();
   }
 }
 
