@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>StringCanvas — Thread Art Portrait</title>
+<style>
+:root{
+  --bg:#0d0d0f;--surface:#141417;--surface2:#1c1c21;
+  --border:#2a2a32;--accent:#e8c97a;--accent2:#c4813a;
+  --text:#e8e8ee;--muted:#6a6a7a;--success:#5cb85c;
+  --font:system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden}
+#header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+.logo{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+#header h1{font-size:19px;color:var(--accent);font-weight:700;letter-spacing:-.01em}
+#header small{font-family:var(--mono);font-size:10px;color:var(--muted);display:block;letter-spacing:.08em;text-transform:uppercase}
+#steps{display:flex;background:var(--surface2);border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#steps::-webkit-scrollbar{display:none}
+.step{padding:11px 14px;display:flex;align-items:center;gap:7px;opacity:.38;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;font-size:12px;font-weight:600;transition:all .2s;user-select:none}
+.step.active{opacity:1;color:var(--accent);border-bottom-color:var(--accent)}
+.step.done{opacity:.7;color:var(--success)}
+.step-n{width:18px;height:18px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700;flex-shrink:0}
+.step.active .step-n{background:var(--accent);color:#000}
+.step.done .step-n{background:var(--success);color:#fff}
+#main{padding:16px;max-width:860px;margin:0 auto}
+.page{display:none;animation:fi .25s ease}
+.page.show{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+#upload-zone{border:2px dashed var(--border);border-radius:14px;padding:48px 20px;text-align:center;cursor:pointer;background:var(--surface);transition:border-color .3s,background .3s}
+#upload-zone:hover,#upload-zone.drag{border-color:var(--accent);background:rgba(232,201,122,.05)}
+#upload-zone .icon{font-size:50px;margin-bottom:12px}
+#upload-zone h2{font-size:21px;margin-bottom:7px;font-weight:700}
+#upload-zone p{color:var(--muted);font-size:13px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:8px;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-p{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000}
+.btn-p:hover{opacity:.84;transform:translateY(-1px)}
+.btn-o{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-o:hover{border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none !important}
+.brow{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px}
+.card h3{font-size:15px;color:var(--accent);margin-bottom:12px;font-weight:700}
+.fg{margin-bottom:13px}
+.fg label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.fg input,.fg select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:9px 11px;color:var(--text);font-size:14px;font-family:var(--font);outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+.fg input:focus,.fg select:focus{border-color:var(--accent)}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.shgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
+.shopt{padding:14px 8px;background:var(--surface2);border:2px solid var(--border);border-radius:9px;cursor:pointer;text-align:center;color:var(--muted);font-size:12px;font-weight:600;transition:all .2s;user-select:none}
+.shopt:hover,.shopt.sel{border-color:var(--accent);color:var(--accent);background:rgba(232,201,122,.07)}
+.shopt .si{font-size:28px;display:block;margin-bottom:4px}
+.cgrid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+.sw{width:30px;height:30px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:transform .15s,border-color .15s;position:relative;flex-shrink:0}
+.sw:hover{transform:scale(1.2)}
+.sw.sel{border-color:#fff;transform:scale(1.2)}
+.sw .ck{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;text-shadow:0 0 3px #000;font-weight:700}
+.cvwrap{background:#111;border-radius:10px;border:1px solid var(--border);overflow:hidden;touch-action:none}
+.cvwrap canvas{display:block;max-width:100%;cursor:crosshair}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
+.stat{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.sl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.sv{font-family:var(--mono);font-size:19px;color:var(--accent);font-weight:700;margin-top:1px}
+.pb{width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:10px 0}
+.pf{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:3px;transition:width .35s}
+.twrap{max-height:360px;overflow-y:auto;border-radius:8px;border:1px solid var(--border);margin-bottom:14px}
+.twrap::-webkit-scrollbar{width:4px}
+.twrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:var(--surface2);padding:8px 9px;text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2}
+tbody td{padding:6px 9px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:hover td{background:rgba(255,255,255,.02)}
+.cdot{width:11px;height:11px;border-radius:50%;display:inline-block;vertical-align:middle;margin-right:4px;border:1px solid rgba(255,255,255,.15)}
+.alert{background:rgba(232,201,122,.1);border:1px solid rgba(232,201,122,.25);border-radius:8px;padding:10px 13px;font-size:13px;color:var(--accent);margin-bottom:12px;line-height:1.5}
+.tip{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
+.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;font-family:var(--mono);background:rgba(232,201,122,.15);color:var(--accent);margin:2px}
+hr.dv{border:none;border-top:1px solid var(--border);margin:12px 0}
+.barrow{margin-bottom:6px}
+.barlabel{display:flex;align-items:center;gap:6px;margin-bottom:3px;font-size:11px}
+.bartrack{height:3px;background:var(--border);border-radius:2px}
+.barfill{height:100%;border-radius:2px}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="logo">🧵</div>
+  <div><h1>StringCanvas</h1><small>Thread Art Portrait Generator</small></div>
+</div>
+
+<div id="steps">
+  <div class="step active" id="st0" onclick="goStep(0)"><div class="step-n">1</div>Upload</div>
+  <div class="step" id="st1" onclick="goStep(1)"><div class="step-n">2</div>Crop</div>
+  <div class="step" id="st2" onclick="goStep(2)"><div class="step-n">3</div>Board</div>
+  <div class="step" id="st3" onclick="goStep(3)"><div class="step-n">4</div>Colors</div>
+  <div class="step" id="st4" onclick="goStep(4)"><div class="step-n">5</div>Visualize</div>
+  <div class="step" id="st5" onclick="goStep(5)"><div class="step-n">6</div>Export</div>
+</div>
+
+<div id="main">
+
+<!-- PAGE 0: UPLOAD -->
+<div class="page show" id="p0">
+  <div id="upload-zone" onclick="document.getElementById('fi').click()"
+       ondragover="event.preventDefault();this.classList.add('drag')"
+       ondragleave="this.classList.remove('drag')"
+       ondrop="onDrop(event)">
+    <div class="icon">🖼️</div>
+    <h2>Upload Your Portrait Photo</h2>
+    <p style="margin-bottom:16px">Best with clear face portraits — good lighting &amp; contrast</p>
+    <button class="btn btn-p" style="padding:12px 26px;font-size:15px" onclick="event.stopPropagation();document.getElementById('fi').click()">📁 Choose Photo</button>
+    <p class="tip" style="margin-top:12px">Supports JPG · PNG · WebP &nbsp;|&nbsp; Tap or drag &amp; drop</p>
+  </div>
+  <input type="file" id="fi" accept="image/*" style="display:none" onchange="loadFile(this)">
+</div>
+
+<!-- PAGE 1: CROP -->
+<div class="page" id="p1">
+  <div class="alert">✏️ <strong>Drag on the photo</strong> to select the portrait area. Leave empty to use the full image.</div>
+  <div class="cvwrap" id="cropWrap">
+    <canvas id="cc"
+      ontouchstart="cTS(event)" ontouchmove="cTM(event)" ontouchend="cTE()"
+      onmousedown="cMD(event)" onmousemove="cMM(event)" onmouseup="cMU()" onmouseleave="cMU()"></canvas>
+  </div>
+  <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <span id="cropInfo" class="tip">No selection — full image will be used</span>
+    <button class="btn btn-o" style="padding:4px 11px;font-size:12px" onclick="clearCrop()">Clear</button>
+  </div>
+  <div class="brow">
+    <button class="btn btn-p" onclick="goStep(2)">Continue to Board Setup →</button>
+    <button class="btn btn-o" onclick="goStep(0)">← Re-upload</button>
+  </div>
+</div>
+
+<!-- PAGE 2: BOARD -->
+<div class="page" id="p2">
+  <div class="card">
+    <h3>⚙️ Board &amp; Nail Setup</h3>
+    <div class="alert">Set your physical board size in centimetres. Nails will be placed along the perimeter.</div>
+    <div class="r2">
+      <div class="fg"><label>Width (cm)</label><input type="number" id="bW" value="30" min="5" max="200" oninput="updBoard()"></div>
+      <div class="fg"><label>Height (cm)</label><input type="number" id="bH" value="30" min="5" max="200" oninput="updBoard()"></div>
+    </div>
+    <div class="fg">
+      <label>Nail Density</label>
+      <select id="bD" onchange="updBoard()">
+        <option value="0.5">0.5 /cm — Sparse (easier to build)</option>
+        <option value="1" selected>1 /cm — Standard (recommended)</option>
+        <option value="1.5">1.5 /cm — Dense (more detail)</option>
+        <option value="2">2 /cm — Very Dense (expert)</option>
+      </select>
+    </div>
+    <div class="fg"><label>Board Shape</label></div>
+    <div class="shgrid">
+      <div class="shopt sel" id="shC" onclick="setShape('circular')"><span class="si">⭕</span>Circular</div>
+      <div class="shopt" id="shR" onclick="setShape('rectangular')"><span class="si">⬜</span>Rectangular</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="sl">Total Nails</div><div class="sv" id="nc">—</div></div>
+      <div class="stat"><div class="sl">Est. Threads</div><div class="sv" id="te">—</div></div>
+    </div>
+    <div class="brow">
+      <button class="btn btn-p" onclick="goStep(3)">Continue to Colors →</button>
+      <button class="btn btn-o" onclick="goStep(1)">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 3: COLORS -->
+<div class="page" id="p3">
+  <div class="card">
+    <h3>🎨 Thread Colors</h3>
+    <div class="alert">Select the thread colors you have available. Algorithm maps image tones to closest matching threads.</div>
+    <div class="fg">
+      <label id="ccount">Colors Selected: 8</label>
+      <div class="cgrid" id="cgrid"></div>
+    </div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn btn-o" style="font-size:11px;padding:5px 11px" onclick="selAll()">All</button>
+      <button class="btn btn-o" style="font-size:11px;padding:5px 11px" onclick="selNone()">None</button>
+      <button class="btn btn-o" style="font-size:11px;padding:5px 11px" onclick="preGray()">Grayscale</button>
+      <button class="btn btn-o" style="font-size:11px;padding:5px 11px" onclick="preWarm()">Warm Skin</button>
+    </div>
+    <hr class="dv">
+    <div id="gstat"></div>
+    <div class="brow">
+      <button class="btn btn-p" style="padding:12px 26px;font-size:15px" id="genBtn" onclick="generate()">✨ Generate Portrait</button>
+      <button class="btn btn-o" onclick="goStep(2)">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 4: VISUALIZE -->
+<div class="page" id="p4">
+  <div class="cvwrap" style="margin-bottom:11px">
+    <canvas id="vc" style="width:100%;image-rendering:pixelated"></canvas>
+  </div>
+  <div style="margin-bottom:11px;display:flex;flex-wrap:wrap;gap:3px" id="vtags"></div>
+  <div class="card">
+    <h3>📊 Portrait Stats</h3>
+    <div class="stats" id="vstats"></div>
+    <div id="cbars"></div>
+    <div class="brow">
+      <button class="btn btn-p" onclick="goStep(5)">📋 Winding Sequence →</button>
+      <button class="btn btn-o" onclick="goStep(3)">← Redo Colors</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 5: EXPORT -->
+<div class="page" id="p5">
+  <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px">
+    <h2 style="font-size:18px;color:var(--accent);font-weight:700">🧵 Winding Sequence</h2>
+    <span id="stag" class="tag"></span>
+    <div style="margin-left:auto;display:flex;gap:7px">
+      <button class="btn btn-o" onclick="goStep(4)">← Back</button>
+      <button class="btn btn-p" onclick="dlExcel()">⬇️ Excel</button>
+    </div>
+  </div>
+  <div class="alert" id="salert"></div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>#</th><th>From</th><th>To</th><th>Side→Side</th><th>Color</th></tr></thead>
+      <tbody id="sbody"></tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h3>📦 Materials Needed</h3>
+    <div id="mlist"></div>
+    <hr class="dv">
+    <button class="btn btn-p" style="width:100%" onclick="dlExcel()">⬇️ Download Full Excel Sheet</button>
+    <p class="tip" style="text-align:center;margin-top:6px">4 sheets: sequence · nail positions · color summary · board config</p>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+// ═══════ DATA ═══════
+const COLORS=[
+  {id:'c1',name:'Ivory White',hex:'#F5F0E8'},{id:'c2',name:'Cream',hex:'#E8D5A3'},
+  {id:'c3',name:'Tan',hex:'#C8A87A'},{id:'c4',name:'Warm Brown',hex:'#8B6340'},
+  {id:'c5',name:'Dark Brown',hex:'#4A2C17'},{id:'c6',name:'Soft Black',hex:'#1A1008'},
+  {id:'c7',name:'Blush Pink',hex:'#F2C4B0'},{id:'c8',name:'Salmon',hex:'#E09070'},
+  {id:'c9',name:'Terracotta',hex:'#C06040'},{id:'c10',name:'Deep Red',hex:'#8B2020'},
+  {id:'c11',name:'Burgundy',hex:'#5C1A1A'},{id:'c12',name:'Navy Blue',hex:'#1A2050'},
+  {id:'c13',name:'Steel Blue',hex:'#4A6080'},{id:'c14',name:'Sky Blue',hex:'#7AAAC8'},
+  {id:'c15',name:'Forest Green',hex:'#2A4A2A'},{id:'c16',name:'Olive',hex:'#6A7040'},
+  {id:'c17',name:'Gold',hex:'#C8A020'},{id:'c18',name:'Amber',hex:'#E08020'},
+  {id:'c19',name:'Charcoal',hex:'#3A3A40'},{id:'c20',name:'Silver Gray',hex:'#9090A0'},
+];
+
+// ═══════ STATE ═══════
+let S={
+  imgEl:null, crop:null, shape:'circular',
+  nails:[], seq:[],
+  selColors:['c1','c2','c3','c4','c5','c6','c7','c8'],
+};
+let cDrag=false, cStart=null;
+
+// ═══════ NAVIGATION ═══════
+function goStep(n){
+  if(n>0&&!S.imgEl)return;
+  if(n>3&&!S.seq.length)return;
+  document.querySelectorAll('.page').forEach((p,i)=>p.classList.toggle('show',i===n));
+  document.querySelectorAll('.step').forEach((s,i)=>{
+    s.classList.toggle('active',i===n);
+    s.classList.toggle('done',i<n);
+    s.querySelector('.step-n').textContent=i<n?'✓':i+1;
+  });
+  if(n===1)initCrop();
+  if(n===2)updBoard();
+  if(n===3)renderColors();
+  if(n===4)renderViz();
+  if(n===5)renderSeq();
+  window.scrollTo(0,0);
+}
+
+// ═══════ UPLOAD ═══════
+function onDrop(e){
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag');
+  const f=e.dataTransfer.files[0]; if(f) loadImg(f);
+}
+function loadFile(inp){if(inp.files[0])loadImg(inp.files[0]);}
+function loadImg(f){
+  const r=new FileReader();
+  r.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{S.imgEl=img;S.crop=null;goStep(1);};
+    img.src=ev.target.result;
+  };
+  r.readAsDataURL(f);
+}
+
+// ═══════ CROP ═══════
+function initCrop(){
+  const cv=document.getElementById('cc');
+  const wrap=document.getElementById('cropWrap');
+  const img=S.imgEl; if(!img)return;
+  const mw=Math.min((wrap.clientWidth||window.innerWidth-32),700);
+  const sc=Math.min(mw/img.width,520/img.height,1);
+  cv.width=Math.round(img.width*sc);
+  cv.height=Math.round(img.height*sc);
+  cv._sc=sc; drawCrop();
+}
+function drawCrop(){
+  const cv=document.getElementById('cc'); if(!cv||!S.imgEl)return;
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.drawImage(S.imgEl,0,0,cv.width,cv.height);
+  const c=S.crop;
+  if(c&&c.w>4&&c.h>4){
+    ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(0,0,cv.width,cv.height);
+    const sc=cv._sc||1;
+    ctx.drawImage(S.imgEl,c.x/sc,c.y/sc,c.w/sc,c.h/sc,c.x,c.y,c.w,c.h);
+    ctx.strokeStyle='#e8c97a'; ctx.lineWidth=2; ctx.strokeRect(c.x,c.y,c.w,c.h);
+    ctx.strokeStyle='#fff'; ctx.lineWidth=3;
+    const cs=10;
+    [[c.x,c.y],[c.x+c.w,c.y],[c.x,c.y+c.h],[c.x+c.w,c.y+c.h]].forEach(([px,py])=>{
+      ctx.beginPath();ctx.moveTo(px-cs,py);ctx.lineTo(px,py);ctx.lineTo(px,py+cs);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(px+cs,py);ctx.lineTo(px,py);ctx.lineTo(px,py-cs);ctx.stroke();
+    });
+    document.getElementById('cropInfo').textContent=`Selected: ${Math.round(c.w)} × ${Math.round(c.h)} px`;
+  } else {
+    document.getElementById('cropInfo').textContent='No selection — full image will be used';
+  }
+}
+function cPos(cv,cx,cy){
+  const r=cv.getBoundingClientRect();
+  return{x:(cx-r.left)*(cv.width/r.width), y:(cy-r.top)*(cv.height/r.height)};
+}
+function cMD(e){cDrag=true;cStart=cPos(e.target,e.clientX,e.clientY);S.crop=null;}
+function cMM(e){if(!cDrag)return;const p=cPos(e.target,e.clientX,e.clientY);S.crop={x:Math.min(cStart.x,p.x),y:Math.min(cStart.y,p.y),w:Math.abs(p.x-cStart.x),h:Math.abs(p.y-cStart.y)};drawCrop();}
+function cMU(){cDrag=false;}
+function cTS(e){e.preventDefault();const t=e.touches[0];cDrag=true;cStart=cPos(e.target,t.clientX,t.clientY);S.crop=null;}
+function cTM(e){e.preventDefault();if(!cDrag)return;const t=e.touches[0];const p=cPos(e.target,t.clientX,t.clientY);S.crop={x:Math.min(cStart.x,p.x),y:Math.min(cStart.y,p.y),w:Math.abs(p.x-cStart.x),h:Math.abs(p.y-cStart.y)};drawCrop();}
+function cTE(){cDrag=false;}
+function clearCrop(){S.crop=null;drawCrop();}
+
+// ═══════ BOARD ═══════
+function setShape(s){
+  S.shape=s;
+  document.getElementById('shC').classList.toggle('sel',s==='circular');
+  document.getElementById('shR').classList.toggle('sel',s==='rectangular');
+  updBoard();
+}
+function updBoard(){
+  const nls=getNails(S.shape,bW(),bH(),bD());
+  document.getElementById('nc').textContent=nls.length;
+  document.getElementById('te').textContent='~'+Math.min(800,nls.length*3);
+}
+function bW(){return Math.max(5,+document.getElementById('bW').value||30);}
+function bH(){return Math.max(5,+document.getElementById('bH').value||30);}
+function bD(){return +document.getElementById('bD').value||1;}
+
+function getNails(shape,wCm,hCm,npc){
+  const nls=[];let id=1;
+  if(shape==='circular'){
+    const cnt=Math.max(8,Math.round(Math.PI*Math.min(wCm,hCm)*npc));
+    for(let i=0;i<cnt;i++){const a=2*Math.PI*i/cnt;nls.push({id:id++,x:.5+.5*Math.cos(a),y:.5+.5*Math.sin(a),side:'circle'});}
+  } else {
+    const nW=Math.max(3,Math.round(wCm*npc)), nH=Math.max(3,Math.round(hCm*npc));
+    for(let i=0;i<nW;i++) nls.push({id:id++,x:i/(nW-1),y:0,side:'top'});
+    for(let i=1;i<nH;i++) nls.push({id:id++,x:1,y:i/(nH-1),side:'right'});
+    for(let i=nW-2;i>=0;i--) nls.push({id:id++,x:i/(nW-1),y:1,side:'bottom'});
+    for(let i=nH-2;i>0;i--) nls.push({id:id++,x:0,y:i/(nH-1),side:'left'});
+  }
+  return nls;
+}
+
+// ═══════ COLORS ═══════
+function renderColors(){
+  const g=document.getElementById('cgrid'); g.innerHTML='';
+  COLORS.forEach(c=>{
+    const d=document.createElement('div');
+    d.className='sw'+(S.selColors.includes(c.id)?' sel':'');
+    d.style.background=c.hex; d.title=c.name;
+    if(S.selColors.includes(c.id)) d.innerHTML='<div class="ck">✓</div>';
+    d.onclick=()=>{
+      const i=S.selColors.indexOf(c.id);
+      if(i>=0)S.selColors.splice(i,1); else S.selColors.push(c.id);
+      renderColors();
+    };
+    g.appendChild(d);
+  });
+  document.getElementById('ccount').textContent='Colors Selected: '+S.selColors.length;
+}
+function selAll(){S.selColors=COLORS.map(c=>c.id);renderColors();}
+function selNone(){S.selColors=[];renderColors();}
+function preGray(){S.selColors=['c1','c2','c3','c4','c5','c6','c19','c20'];renderColors();}
+function preWarm(){S.selColors=['c2','c3','c4','c5','c7','c8','c9','c10','c17','c18'];renderColors();}
+
+// ═══════ GENERATE ═══════
+function h2r(hex){return[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];}
+function cdist([r1,g1,b1],[r2,g2,b2]){return Math.sqrt((r1-r2)**2+(g1-g2)**2+(b1-b2)**2);}
+function closestClr(r,g,b,pal){
+  let best=pal[0],d=Infinity;
+  for(const c of pal){const dd=cdist([r,g,b],h2r(c.hex));if(dd<d){d=dd;best=c;}}
+  return best;
+}
+
+async function generate(){
+  if(S.selColors.length<2){alert('Please select at least 2 colors.');return;}
+  const btn=document.getElementById('genBtn');
+  btn.disabled=true; btn.textContent='⏳ Generating…';
+  const gst=document.getElementById('gstat');
+  gst.innerHTML='<div class="pb"><div class="pf" id="pf" style="width:5%"></div></div><p class="tip" id="pst" style="text-align:center">Preparing image…</p>';
+  const pf=()=>document.getElementById('pf');
+  const ps=t=>{document.getElementById('pst').textContent=t;};
+
+  await sl(40);
+  const SZ=400;
+  const src=document.createElement('canvas'); src.width=src.height=SZ;
+  const sctx=src.getContext('2d');
+  const cv=document.getElementById('cc'); const sc=cv._sc||1;
+  const c=S.crop;
+  if(c&&c.w>4&&c.h>4) sctx.drawImage(S.imgEl,c.x/sc,c.y/sc,c.w/sc,c.h/sc,0,0,SZ,SZ);
+  else sctx.drawImage(S.imgEl,0,0,SZ,SZ);
+
+  pf().style.width='20%'; ps('Computing nail positions…'); await sl(40);
+
+  const nls=getNails(S.shape,bW(),bH(),bD());
+  const imgD=sctx.getImageData(0,0,SZ,SZ).data;
+  S.nails=nls.map(n=>{
+    const px=Math.min(SZ-1,Math.round(n.x*(SZ-1)));
+    const py=Math.min(SZ-1,Math.round(n.y*(SZ-1)));
+    const i=(py*SZ+px)*4;
+    return{...n,r:imgD[i],g:imgD[i+1],b:imgD[i+2]};
+  });
+
+  pf().style.width='40%'; ps('Building thread paths…'); await sl(60);
+
+  const pal=COLORS.filter(c=>S.selColors.includes(c.id));
+  const maxT=Math.min(800,nls.length*3);
+  S.seq=buildSeq(S.nails,pal,maxT);
+
+  pf().style.width='80%'; ps('Rendering visualization…'); await sl(40);
+
+  drawVizCanvas();
+
+  pf().style.width='100%'; ps('Done! ✓'); await sl(300);
+  gst.innerHTML='';
+  btn.disabled=false; btn.textContent='✨ Generate Portrait';
+  goStep(4);
+}
+function sl(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function buildSeq(nls,pal,maxT){
+  const seq=[]; let cur=0; const used=new Set(); const N=nls.length;
+  for(let t=0;t<maxT;t++){
+    const from=nls[cur]; const cands=[];
+    for(let i=0;i<N;i++){
+      if(i===cur)continue;
+      const k=Math.min(cur,i)*100000+Math.max(cur,i);
+      if(used.has(k))continue;
+      const to=nls[i];
+      const dark=255-(from.r+from.g+from.b)/3;
+      const dist=Math.sqrt((from.x-to.x)**2+(from.y-to.y)**2);
+      cands.push({i,score:dark/(1+dist*4)});
+    }
+    if(!cands.length)break;
+    cands.sort((a,b)=>b.score-a.score);
+    const pick=cands[Math.floor(Math.random()*Math.min(6,cands.length))];
+    const to=nls[pick.i];
+    const k=Math.min(cur,pick.i)*100000+Math.max(cur,pick.i);
+    used.add(k);
+    const mr=(from.r+to.r)/2,mg=(from.g+to.g)/2,mb=(from.b+to.b)/2;
+    seq.push({step:t+1,fromNail:from.id,toNail:to.id,fromSide:from.side,toSide:to.side,color:closestClr(mr,mg,mb,pal)});
+    cur=pick.i;
+  }
+  return seq;
+}
+
+// ═══════ VIZ ═══════
+function drawVizCanvas(){
+  const SZ=400, cv=document.getElementById('vc');
+  cv.width=cv.height=SZ;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#111'; ctx.fillRect(0,0,SZ,SZ);
+  if(S.shape==='circular'){ctx.save();ctx.beginPath();ctx.arc(SZ/2,SZ/2,SZ/2-2,0,Math.PI*2);ctx.clip();}
+  for(const s of S.seq){
+    const fn=S.nails.find(n=>n.id===s.fromNail);
+    const tn=S.nails.find(n=>n.id===s.toNail);
+    if(!fn||!tn)continue;
+    ctx.beginPath();ctx.moveTo(fn.x*SZ,fn.y*SZ);ctx.lineTo(tn.x*SZ,tn.y*SZ);
+    ctx.strokeStyle=s.color.hex+'66';ctx.lineWidth=0.7;ctx.stroke();
+  }
+  if(S.shape==='circular')ctx.restore();
+  for(const n of S.nails){
+    ctx.beginPath();ctx.arc(n.x*SZ,n.y*SZ,1.4,0,Math.PI*2);
+    ctx.fillStyle='#ccc';ctx.fill();
+  }
+}
+
+function renderViz(){
+  if(!S.seq.length)return;
+  const W=bW(),H=bH();
+  const uColors=[...new Set(S.seq.map(s=>s.color.id))];
+  const totM=Math.round(S.seq.length*Math.max(W,H)*1.2/100);
+  document.getElementById('vtags').innerHTML=
+    `<span class="tag">${S.nails.length} nails</span><span class="tag">${S.seq.length} threads</span><span class="tag">${W}×${H}cm</span><span class="tag">${S.shape}</span>`;
+  document.getElementById('vstats').innerHTML=
+    `<div class="stat"><div class="sl">Nails</div><div class="sv">${S.nails.length}</div></div>
+     <div class="stat"><div class="sl">Threads</div><div class="sv">${S.seq.length}</div></div>
+     <div class="stat"><div class="sl">Colors</div><div class="sv">${uColors.length}</div></div>
+     <div class="stat"><div class="sl">Est. Thread</div><div class="sv">~${totM}m</div></div>`;
+  const cnt={};S.seq.forEach(s=>{cnt[s.color.id]=(cnt[s.color.id]||0)+1;});
+  const cb=document.getElementById('cbars');
+  cb.innerHTML='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px">Color Distribution</div>';
+  COLORS.filter(c=>cnt[c.id]).sort((a,b)=>cnt[b.id]-cnt[a.id]).forEach(c=>{
+    const pct=(cnt[c.id]/S.seq.length*100).toFixed(0);
+    cb.innerHTML+=`<div class="barrow"><div class="barlabel"><div style="width:10px;height:10px;border-radius:50%;background:${c.hex};border:1px solid #555;flex-shrink:0"></div><span style="flex:1">${c.name}</span><span style="font-family:var(--mono);color:var(--muted)">${pct}%</span></div><div class="bartrack"><div class="barfill" style="width:${pct}%;background:${c.hex}"></div></div></div>`;
+  });
+}
+
+// ═══════ SEQUENCE TABLE ═══════
+function renderSeq(){
+  if(!S.seq.length)return;
+  document.getElementById('stag').textContent=S.seq.length+' steps';
+  document.getElementById('salert').textContent='📌 Start at nail #'+S.seq[0].fromNail+'. Wind thread to each next nail in order.';
+  const tb=document.getElementById('sbody'); tb.innerHTML='';
+  S.seq.forEach(s=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="font-family:var(--mono);color:var(--muted)">${s.step}</td>
+      <td style="font-family:var(--mono);font-weight:700">#${s.fromNail}</td>
+      <td style="font-family:var(--mono);font-weight:700">#${s.toNail}</td>
+      <td style="font-size:10px;color:var(--muted)">${s.fromSide||'—'}→${s.toSide||'—'}</td>
+      <td><span class="cdot" style="background:${s.color.hex}"></span>${s.color.name}</td>`;
+    tb.appendChild(tr);
+  });
+  const cnt={};S.seq.forEach(s=>{cnt[s.color.id]=(cnt[s.color.id]||0)+1;});
+  const W=bW(),H=bH(),ml=document.getElementById('mlist'); ml.innerHTML='';
+  COLORS.filter(c=>cnt[c.id]).sort((a,b)=>cnt[b.id]-cnt[a.id]).forEach(c=>{
+    const m=Math.round(cnt[c.id]*Math.max(W,H)*1.2/100);
+    ml.innerHTML+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="width:13px;height:13px;border-radius:50%;flex-shrink:0;background:${c.hex};border:1px solid #555"></div>
+      <span style="flex:1;font-size:13px">${c.name}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">${cnt[c.id]} lines · ~${m}m</span>
+    </div>`;
+  });
+}
+
+// ═══════ EXCEL EXPORT (pure JS, no library) ═══════
+function dlExcel(){
+  const W=bW(),H=bH(),D=bD();
+  const cnt={};S.seq.forEach(s=>{cnt[s.color.id]=(cnt[s.color.id]||0)+1;});
+
+  // Build 4 CSV sheets
+  let s1='Step,From Nail,To Nail,From Side,To Side,Thread Color,Hex\n';
+  S.seq.forEach(s=>{s1+=`${s.step},${s.fromNail},${s.toNail},${s.fromSide||''},${s.toSide||''},"${s.color.name}","${s.color.hex}"\n`;});
+
+  let s2='Color,Hex,Thread Count,Est. Length (m)\n';
+  COLORS.filter(c=>cnt[c.id]).sort((a,b)=>cnt[b.id]-cnt[a.id]).forEach(c=>{
+    s2+=`"${c.name}","${c.hex}",${cnt[c.id]},${Math.round(cnt[c.id]*Math.max(W,H)*1.2/100)}\n`;
+  });
+
+  let s3='Nail #,X (0-1),Y (0-1),Side\n';
+  S.nails.forEach(n=>{s3+=`${n.id},${n.x.toFixed(4)},${n.y.toFixed(4)},${n.side||''}\n`;});
+
+  let s4='Setting,Value\n';
+  s4+=`Board Width (cm),${W}\nBoard Height (cm),${H}\nNails per cm,${D}\nShape,${S.shape}\n`;
+  s4+=`Total Nails,${S.nails.length}\nTotal Threads,${S.seq.length}\nColors Used,${Object.keys(cnt).length}\n`;
+
+  const blob=new Blob([makeXLSX({'Thread Sequence':s1,'Color Summary':s2,'Nail Positions':s3,'Board Config':s4})],
+    {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='StringCanvas_Portrait.xlsx';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+// ── Minimal pure-JS XLSX writer ──
+function makeXLSX(sheets){
+  const names=Object.keys(sheets);
+  const ex=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  function csvToSheetXml(csv){
+    const rows=csv.trim().split('\n').map(line=>{
+      const cells=[];let cur='',q=false;
+      for(const ch of line){if(ch==='"')q=!q;else if(ch===','&&!q){cells.push(cur);cur='';}else cur+=ch;}
+      cells.push(cur);return cells;
+    });
+    let x='<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+    rows.forEach((row,ri)=>{
+      x+=`<row r="${ri+1}">`;
+      row.forEach((cell,ci)=>{
+        const col=ci<26?String.fromCharCode(65+ci):'A'+String.fromCharCode(65+ci-26);
+        const ref=`${col}${ri+1}`;
+        const num=cell.trim()!==''&&!isNaN(cell.trim());
+        x+=num?`<c r="${ref}"><v>${ex(cell.trim())}</v></c>`:`<c r="${ref}" t="inlineStr"><is><t>${ex(cell)}</t></is></c>`;
+      });
+      x+='</row>';
+    });
+    return x+'</sheetData></worksheet>';
+  }
+
+  const styles='<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts><font><sz val="11"/><name val="Calibri"/></font></fonts><fills><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs></styleSheet>';
+
+  let wb='<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>';
+  names.forEach((n,i)=>{wb+=`<sheet name="${ex(n)}" sheetId="${i+1}" r:id="rId${i+2}"/>`;});
+  wb+='</sheets></workbook>';
+
+  let wbr='<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>';
+  names.forEach((n,i)=>{wbr+=`<Relationship Id="rId${i+2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`;});
+  wbr+='</Relationships>';
+
+  const ct='<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+    +names.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`)
+    .join('')+'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
+
+  const pkgr='<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+
+  const files={'[Content_Types].xml':ct,'_rels/.rels':pkgr,'xl/workbook.xml':wb,'xl/_rels/workbook.xml.rels':wbr,'xl/styles.xml':styles};
+  names.forEach((n,i)=>{files[`xl/worksheets/sheet${i+1}.xml`]=csvToSheetXml(sheets[n]);});
+  return mkZip(files);
+}
+
+// ── ZIP writer ──
+function mkZip(files){
+  function s2b(s){const b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i)&0xff;return b;}
+  function u32(n){const b=new Uint8Array(4);new DataView(b.buffer).setUint32(0,n,true);return b;}
+  function u16(n){const b=new Uint8Array(2);new DataView(b.buffer).setUint16(0,n,true);return b;}
+  function crc32(d){
+    if(!crc32.t){crc32.t=[];for(let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=c&1?0xEDB88320^(c>>>1):c>>>1;crc32.t[i]=c;}}
+    let c=0xFFFFFFFF;for(let i=0;i<d.length;i++)c=crc32.t[(c^d[i])&0xff]^(c>>>8);return(c^0xFFFFFFFF)>>>0;
+  }
+  function cat(...a){const t=a.reduce((s,x)=>s+x.length,0),o=new Uint8Array(t);let p=0;for(const x of a){o.set(x,p);p+=x.length;}return o;}
+  const enc=new TextEncoder();
+  const lh=[],cd=[];let off=0;
+  for(const[name,content]of Object.entries(files)){
+    const nb=enc.encode(name);
+    const db=typeof content==='string'?s2b(content):content;
+    const crc=crc32(db);
+    const local=cat(new Uint8Array([0x50,0x4B,0x03,0x04]),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(db.length),u32(db.length),u16(nb.length),u16(0),nb,db);
+    const cent=cat(new Uint8Array([0x50,0x4B,0x01,0x02]),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(db.length),u32(db.length),u16(nb.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(off),nb);
+    lh.push(local);cd.push(cent);off+=local.length;
+  }
+  const cdo=off,cds=cd.reduce((s,c)=>s+c.length,0);
+  const eocd=cat(new Uint8Array([0x50,0x4B,0x05,0x06]),u16(0),u16(0),u16(cd.length),u16(cd.length),u32(cds),u32(cdo),u16(0));
+  return cat(...lh,...cd,eocd);
+}
+
+// ═══════ INIT ═══════
+updBoard();
+renderColors();
+</script>
+</body>
+</html>
